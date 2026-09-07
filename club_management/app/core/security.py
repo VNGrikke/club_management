@@ -1,5 +1,6 @@
 import bcrypt
 from fastapi import HTTPException
+from fastapi.security import HTTPBearer
 from datetime import datetime, timedelta, timezone
 import jwt
 
@@ -10,6 +11,8 @@ SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
+# Khai báo schema để lấy token từ Header (dùng cho Dependency Injection)
+security_bearer = HTTPBearer()
 
 # 1. XỬ LÝ MẬT KHẨU
 def hash_password(password: str) -> str:
@@ -23,25 +26,27 @@ def verify_password(password: str, hashed_password: str) -> bool:
         hashed_password.encode("utf-8")
     )
 
-
 # 2. XỬ LÝ TOKEN (JWT)
-# Hàm 1: TẠO TOKEN (Dùng khi Đăng nhập)
 def create_access_token(data: dict) -> str:
     to_encode = data.copy()
     
-    # Tính toán thời gian hết hạn (expiration time)
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     
-    # Tạo token (Encode)
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def create_refresh_token(data: dict) -> str:
+    to_encode = data.copy()
+    
+    expire = datetime.now(timezone.utc) + timedelta(days=7) 
+    to_encode.update({"exp": expire})
+    
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
-# Hàm 2: KIỂM TRA TOKEN 
 def verify_access_token(token: str) -> dict:
     try:
-        # Giải mã token (Decode)
         payload = jwt.decode(
             token,
             SECRET_KEY,
